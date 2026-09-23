@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — 2026-09-23
+
+- Builds are now signed with a Developer ID certificate (hardened runtime), notarized by Apple and stapled: the app opens without Gatekeeper warnings
+- Universal binary (Apple silicon + Intel)
+- `Scripts/build-app.sh` gained `CODESIGN_IDENTITY` / `NOTARY_*` options; the Release workflow signs and notarizes when the corresponding secrets are configured
+
 ## 0.1.0 — 2026-09-23
 
 First release.

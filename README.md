@@ -39,14 +39,9 @@ Supported input: MP3, M4A/AAC/ALAC, WAV, AIFF, FLAC, CAF (anything Core Audio de
 ## Install
 
 1. Download `KeensInKey-<version>.dmg` (or `.zip`) from the [latest release](https://github.com/garam-with-ccc/keens-in-key/releases/latest).
-2. Drag **Keens In Key.app** into `Applications`.
-3. The app is ad-hoc signed (no Apple Developer ID), so on first launch macOS Gatekeeper will complain. Either right-click the app → **Open** → **Open**, or run:
+2. Drag **Keens In Key.app** into `Applications` and open it.
 
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/KeensInKey.app"
-   ```
-
-Requires macOS 14 Sonoma or later (Apple silicon or Intel).
+Releases are signed with a Developer ID certificate and notarized by Apple, so the app opens without Gatekeeper warnings. Requires macOS 14 Sonoma or later; the build is universal (Apple silicon and Intel).
 
 ## Screenshots
 
@@ -87,7 +82,12 @@ kik compat 8A                                 # compatible keys
 git clone https://github.com/garam-with-ccc/keens-in-key.git
 cd keens-in-key
 swift test                # unit tests (key mapping, ID3/FLAC/MP4 round trips)
-./Scripts/build-app.sh    # → dist/KeensInKey.app, .zip and .dmg
+./Scripts/build-app.sh    # → dist/KeensInKey.app, .zip and .dmg (ad-hoc signed)
+
+# Signed + notarized release build:
+UNIVERSAL=1 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+  NOTARY_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXX.p8 NOTARY_KEY_ID=XXXX NOTARY_ISSUER=<issuer-uuid> \
+  ./Scripts/build-app.sh
 ```
 
 Xcode 16 / Swift 5.10 or newer. The project is a plain Swift package: `KeensInKeyCore` (DSP, tags, export), `KeensInKey` (SwiftUI app) and `kik` (CLI).
@@ -109,7 +109,7 @@ Xcode 16 / Swift 5.10 or newer. The project is a plain Swift package: `KeensInKe
 * Personalize 탭에서 태그 기록 방식(Initial Key, 코멘트 형식, 그룹, 제목 접두어, 파일명)을 설정합니다.
 * CSV / rekordbox XML / M3U로 내보낼 수 있습니다.
 
-설치: 릴리즈에서 DMG를 받아 응용 프로그램 폴더로 옮긴 뒤, 처음 실행 시 우클릭 → 열기 (개발자 서명이 없는 앱입니다).
+설치: 릴리즈에서 DMG를 받아 응용 프로그램 폴더로 옮기면 됩니다. Developer ID 서명과 Apple 공증을 거친 빌드라 Gatekeeper 경고 없이 바로 열립니다.
 
 ## License
 
