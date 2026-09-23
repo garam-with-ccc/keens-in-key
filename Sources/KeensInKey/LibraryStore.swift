@@ -66,7 +66,7 @@ final class LibraryStore {
                 if let e = fm.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
                     for case let u as URL in e where AudioDecoder.isSupported(u) { files.append(u) }
                 }
-            } else if AudioDecoder.isSupported(url) {
+            } else if AudioDecoder.isSupported(url), fm.fileExists(atPath: url.path) {
                 files.append(url)
             }
         }

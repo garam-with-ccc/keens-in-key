@@ -96,7 +96,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionHeader(title: "About")
                         Text("Keens In Key \(AppInfo.version)").font(.system(size: 13, weight: .semibold))
-                        Text("Open-source key, BPM, energy and cue point analysis for DJs, inspired by Mixed In Key. Key detection uses a 7-octave constant-Q chromagram matched against tone profiles; tempo uses an onset-envelope autocorrelation with dynamic-programming beat tracking.")
+                        Text("Open-source key, BPM, energy and cue point analysis for DJs, inspired by Mixed In Key. Key detection uses a 5-octave constant-Q chromagram with harmonic reassignment matched against tone profiles; tempo uses an onset-envelope autocorrelation with dynamic-programming beat tracking.")
                             .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                         HStack {
                             Button("GitHub") { if let u = URL(string: "https://github.com/garam-with-ccc/keens-in-key") { NSWorkspace.shared.open(u) } }.buttonStyle(ToolbarButtonStyle())

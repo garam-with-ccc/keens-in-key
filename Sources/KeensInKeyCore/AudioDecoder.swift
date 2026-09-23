@@ -41,6 +41,9 @@ public enum AudioDecoder {
     }
 
     public static func decodeMono(url: URL, targetSampleRate: Double? = nil, maxSeconds: Double? = nil) throws -> DecodedAudio {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw AudioDecodeError.unreadable("file not found")
+        }
         let file: AVAudioFile
         do {
             file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)

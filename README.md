@@ -62,12 +62,12 @@ Requires macOS 14 Sonoma or later (Apple silicon or Intel).
 
 Everything is implemented in Swift on top of Accelerate (vDSP) and AVFoundation — no external DSP libraries.
 
-* **Key** — audio is resampled to 11.025 kHz and analysed with 16k-point Blackman-windowed FFTs. A 7-octave (C1–B7) constant-Q style spectral kernel folds the spectrum into a 12-bin chromagram, with harmonic reassignment to counter the classic "dominant key" bias and an automatic tuning estimate (±40 cents). The summed chroma is matched against 24 rotated tone profiles (Sha'ath/KeyFinder by default; Krumhansl-Kessler, Temperley and Essentia's EDMA profiles are selectable).
-* **Tempo** — a spectral-flux onset envelope (40 log-spaced bands, 172 frames/s) is autocorrelated and weighted with a log-normal tempo prior. The period is refined over bar-length lags, beats are tracked with Ellis' dynamic-programming beat tracker, and the final BPM is fitted to the beat sequence for two-decimal precision.
+* **Key** — audio is resampled to 11.025 kHz and analysed with 16k-point Blackman-windowed FFTs. A constant-Q style spectral kernel over C1–B5 folds the spectrum into a 12-bin chromagram, with HPCP-style harmonic reassignment to counter the classic "dominant key" bias and an automatic tuning estimate (±40 cents). The summed chroma is matched against 24 rotated tone profiles (Sha'ath/KeyFinder by default; Krumhansl-Kessler, Temperley and Essentia's EDMA profiles are selectable).
+* **Tempo** — a spectral-flux onset envelope (40 log-spaced bands, 172 frames/s, level-aware log compression so kicks outweigh hi-hats) is autocorrelated, weighted with a log-normal tempo prior and scored with harmonic support at 2× and 4× the period (suppresses 3:2 and 4:3 errors from dotted rhythms). The period is refined over bar-length lags, beats are tracked with Ellis' dynamic-programming beat tracker, and the final BPM is fitted to the beat sequence for two-decimal precision.
 * **Downbeats & cues** — beat-level energy and chroma features are compared bar-to-bar; the beat phase with the largest bar-boundary novelty becomes the downbeat, and novelty peaks on the bar grid (with a phrase-alignment bonus) become cue points, labelled from the energy of the surrounding sections.
 * **Energy** — combines integrated and short-term loudness, bass ratio, brightness, onset spikiness and tempo periodicity into a 1–10 score.
 
-Accuracy was checked against Essentia's `KeyExtractor` / `RhythmExtractor2013` on a mixed corpus of K-pop, pop and AI-generated tracks; see `docs/ACCURACY.md`.
+Accuracy was checked against Essentia's `KeyExtractor` / `RhythmExtractor2013` on 177 K-pop, pop and AI-generated tracks: on the 100 K-pop previews the key is exact 70% of the time and Camelot-compatible 88%, and BPM agrees within 2% on 86% (Essentia's own two key profiles agree with each other only 85% of the time). Details and methodology in [docs/ACCURACY.md](docs/ACCURACY.md).
 
 ## Command line
 

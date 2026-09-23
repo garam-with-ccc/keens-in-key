@@ -40,7 +40,7 @@ public final class TempoDetector {
         public var bassWeight: Double = 0.0
         /// Onset flux compression: band energies are mapped through log(1 + μ·P/P₉₀) (μ > 0) instead of
         /// decibels, so loud onsets (kicks, snares) outweigh quiet broadband ones (hi-hats). 0 = decibels.
-        public var fluxCompression: Double = 30
+        public var fluxCompression: Double = 100
         /// Final BPM is folded (halved/doubled) into this range.
         public var rangeMin: Double = 70
         public var rangeMax: Double = 175

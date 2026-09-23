@@ -7,9 +7,9 @@ public final class TrackAnalyzer {
         public var keyProfile: KeyProfile = .shaath
         public var keySimilarity: KeyDetector.Similarity = .cosine
         public var keyFrameNormalization: Bool = false
-        public var keyOctaves: Int = 7
+        public var keyOctaves: Int = 5
         public var keyLowestMIDI: Int = 24
-        public var keyHarmonicWeights: [Double] = []
+        public var keyHarmonicWeights: [Double] = [0.5, 0.4, 0.3, 0.2]
         public var keyOctaveDecay: Double = 1.0
         public var keyLogCompression: Double = 0
         public var minBPM: Double = 70
@@ -18,7 +18,7 @@ public final class TrackAnalyzer {
         public var tempoPriorSigma: Double = 0.9
         public var tempoHarmonicWeights: [Double] = [1.0, 0.5]
         public var tempoBassWeight: Double = 0.0
-        public var tempoFluxCompression: Double = 30
+        public var tempoFluxCompression: Double = 100
         public var cueCount: Int = 8
         public var waveformBuckets: Int = 2000
         public init() {}

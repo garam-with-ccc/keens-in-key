@@ -56,9 +56,10 @@ public final class KeyDetector {
         public var fftSize: Int = 16384
         public var hop: Int = 2048
         public var lowestMIDI: Int = 24       // C1
-        public var octaves: Int = 7
-        /// Weights for reassigning energy from harmonics 2…6 back to their fundamentals (HPCP-style).
-        public var harmonicWeights: [Double] = []
+        /// C1…B5: fundamentals live here; higher octaves mostly add harmonics that bias towards the dominant.
+        public var octaves: Int = 5
+        /// Weights for reassigning energy from harmonics 2…5 back to their fundamentals (HPCP-style).
+        public var harmonicWeights: [Double] = [0.5, 0.4, 0.3, 0.2]
         /// Per-octave gain multiplier applied from the lowest octave upwards (1 = flat, <1 favours bass).
         public var octaveDecay: Double = 1.0
         /// Compress magnitudes with log(1 + gain·m) before folding (0 = off).
@@ -251,9 +252,10 @@ public final class KeyDetector {
         candidates.sort { $0.score > $1.score }
         let best = candidates[0]
         let second = candidates[1].score
-        // Confidence from the margin over the runner-up, scaled per similarity measure.
+        // Confidence from the margin over the runner-up. For cosine similarity the mapping was
+        // calibrated against Essentia on real music: margin 0.005 ≈ 45%, 0.015 ≈ 85%, ≥ 0.02 ≈ 100%.
         let margin = best.score - second
-        let confidence = max(0, min(1, similarity == .pearson ? margin * 4 : margin * 40))
+        let confidence = max(0, min(1, similarity == .pearson ? margin * 4 : 0.25 + margin * 40))
         return KeyEstimate(key: best.key, confidence: confidence, strength: best.score, tuning: tuning, chroma: norm, candidates: Array(candidates.prefix(5)))
     }
 }
