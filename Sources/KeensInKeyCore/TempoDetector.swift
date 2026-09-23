@@ -31,6 +31,16 @@ public final class TempoDetector {
         /// Centre / width (octaves) of the tempo prior.
         public var priorBPM: Double = 125
         public var priorSigma: Double = 0.9
+        /// A candidate lag is scored as ac(lag) × (1 + w2·ac(2·lag) + w4·ac(4·lag)) / (1 + w2 + w4):
+        /// lags whose doubles and quadruples also fit the music (half-bar, bar) are preferred, which
+        /// suppresses the 3:2 / 4:3 errors caused by dotted (tresillo) rhythms and off-beat hats.
+        public var harmonicWeights: (Double, Double) = (1.0, 0.5)
+        /// Extra weight (0…1) given to the onset flux of the bass bands (< 200 Hz), so kicks and bass
+        /// notes dominate the periodicity estimate over hi-hats.
+        public var bassWeight: Double = 0.0
+        /// Onset flux compression: band energies are mapped through log(1 + μ·P/P₉₀) (μ > 0) instead of
+        /// decibels, so loud onsets (kicks, snares) outweigh quiet broadband ones (hi-hats). 0 = decibels.
+        public var fluxCompression: Double = 30
         /// Final BPM is folded (halved/doubled) into this range.
         public var rangeMin: Double = 70
         public var rangeMax: Double = 175
@@ -44,6 +54,7 @@ public final class TempoDetector {
     private let lowBin: Int
     private let midBin: Int
     private let highBin: Int
+    private let bassBands: Int
 
     public init(config: Config = Config()) {
         self.config = config
@@ -63,6 +74,7 @@ public final class TempoDetector {
             prevHi = hi
         }
         bandRanges = ranges
+        bassBands = max(1, ranges.filter { Double($0.1) * binWidth <= 210 }.count)
         lowBin = max(1, Int((150.0 / binWidth).rounded()))
         midBin = max(lowBin + 1, Int((4000.0 / binWidth).rounded()))
         highBin = config.fftSize / 2
@@ -103,20 +115,31 @@ public final class TempoDetector {
                 }
             }
         }
-        let maxP = DSP.maxValue(bandPower)
-        let floor = max(maxP * 1e-9, 1e-12)
         var logP = [Float](repeating: 0, count: frames * nb)
-        for i in 0..<(frames * nb) { logP[i] = 10 * log10f(max(bandPower[i], floor)) }
+        if config.fluxCompression > 0 {
+            let ref = max(DSP.percentile(bandPower, 0.9), 1e-12)
+            let mu = Float(config.fluxCompression) / ref
+            for i in 0..<(frames * nb) { logP[i] = log1pf(mu * max(bandPower[i], 0)) }
+        } else {
+            let maxP = DSP.maxValue(bandPower)
+            let floor = max(maxP * 1e-9, 1e-12)
+            for i in 0..<(frames * nb) { logP[i] = 10 * log10f(max(bandPower[i], floor)) }
+        }
         var env = [Float](repeating: 0, count: frames)
+        let bw = Float(config.bassWeight)
         if frames > 1 {
             for f in 1..<frames {
                 var acc: Float = 0
+                var bass: Float = 0
                 let cur = f * nb, prev = (f - 1) * nb
                 for b in 0..<nb {
                     let d = logP[cur + b] - logP[prev + b]
-                    if d > 0 { acc += d }
+                    if d > 0 {
+                        acc += d
+                        if b < bassBands { bass += d }
+                    }
                 }
-                env[f] = acc / Float(nb)
+                env[f] = (1 - bw) * acc / Float(nb) + bw * bass / Float(bassBands)
             }
         }
         return (env, BandEnergies(low: low, mid: mid, high: high, total: total))
@@ -190,9 +213,15 @@ public final class TempoDetector {
 
         // Weighted tempogram peaks.
         var scores = [Float](repeating: 0, count: ac.count)
+        let (w2, w4) = config.harmonicWeights
         for lag in minLag...searchHi {
             let bpm = 60.0 * fps / Double(lag)
-            scores[lag] = max(0, ac[lag]) * Float(prior(bpm: bpm))
+            let base = Double(max(0, ac[lag]))
+            var support = 1.0
+            var wsum = 1.0
+            if 2 * lag < ac.count { support += w2 * Double(max(0, ac[2 * lag])); wsum += w2 }
+            if 4 * lag < ac.count { support += w4 * Double(max(0, ac[4 * lag])); wsum += w4 }
+            scores[lag] = Float(base * support / wsum * prior(bpm: bpm))
         }
         var peaks: [(lag: Int, score: Float)] = []
         for lag in (minLag + 1)..<searchHi where scores[lag] > scores[lag - 1] && scores[lag] >= scores[lag + 1] && scores[lag] > 0 {

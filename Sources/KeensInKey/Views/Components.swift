@@ -122,3 +122,19 @@ struct StatusCell: View {
         }
     }
 }
+
+/// A vertical ScrollView that degrades to a plain container in snapshot mode (offscreen capture cannot see scroll view contents).
+struct SnapshotScroll<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        if SnapshotRunner.active {
+            VStack(alignment: .leading, spacing: 0) { content; Spacer(minLength: 0) }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Theme.background)
+        } else {
+            ScrollView { content }
+                .scrollContentBackground(.hidden)
+                .background(Theme.background)
+        }
+    }
+}

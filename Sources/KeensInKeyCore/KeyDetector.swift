@@ -209,7 +209,7 @@ public final class KeyDetector {
                 }
                 if config.octaveDecay != 1 { for k in 0..<semitoneBins { bins[k] *= octaveGain[k] } }
                 var c = [Float](repeating: 0, count: 12)
-                for k in 0..<semitoneBins { c[k % 12] += bins[k] }
+                for k in 0..<semitoneBins { c[(config.lowestMIDI + k) % 12] += bins[k] }
                 chromagram[f] = c
                 if config.frameNormalization {
                     let s = c.reduce(0, +)

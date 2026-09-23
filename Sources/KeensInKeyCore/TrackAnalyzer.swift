@@ -14,6 +14,11 @@ public final class TrackAnalyzer {
         public var keyLogCompression: Double = 0
         public var minBPM: Double = 70
         public var maxBPM: Double = 175
+        public var tempoPriorBPM: Double = 125
+        public var tempoPriorSigma: Double = 0.9
+        public var tempoHarmonicWeights: [Double] = [1.0, 0.5]
+        public var tempoBassWeight: Double = 0.0
+        public var tempoFluxCompression: Double = 30
         public var cueCount: Int = 8
         public var waveformBuckets: Int = 2000
         public init() {}
@@ -59,6 +64,13 @@ public final class TrackAnalyzer {
         var tempoConfig = TempoDetector.Config()
         tempoConfig.rangeMin = options.minBPM
         tempoConfig.rangeMax = options.maxBPM
+        tempoConfig.priorBPM = options.tempoPriorBPM
+        tempoConfig.priorSigma = options.tempoPriorSigma
+        tempoConfig.bassWeight = options.tempoBassWeight
+        tempoConfig.fluxCompression = options.tempoFluxCompression
+        if options.tempoHarmonicWeights.count >= 2 {
+            tempoConfig.harmonicWeights = (options.tempoHarmonicWeights[0], options.tempoHarmonicWeights[1])
+        }
         let tempoAnalysis = TempoDetector(config: tempoConfig).analyze(samples: s22)
         var tempo = tempoAnalysis.estimate
 

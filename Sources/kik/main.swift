@@ -62,6 +62,11 @@ case "analyze":
         case "--harmonics": i += 1; if i < args.count { options.keyHarmonicWeights = args[i].split(separator: ",").compactMap { Double($0) } }
         case "--octave-decay": i += 1; if i < args.count, let v = Double(args[i]) { options.keyOctaveDecay = v }
         case "--log": i += 1; if i < args.count, let v = Double(args[i]) { options.keyLogCompression = v }
+        case "--prior-bpm": i += 1; if i < args.count, let v = Double(args[i]) { options.tempoPriorBPM = v }
+        case "--prior-sigma": i += 1; if i < args.count, let v = Double(args[i]) { options.tempoPriorSigma = v }
+        case "--tempo-flux": i += 1; if i < args.count, let v = Double(args[i]) { options.tempoFluxCompression = v }
+        case "--tempo-bass": i += 1; if i < args.count, let v = Double(args[i]) { options.tempoBassWeight = v }
+        case "--tempo-harmonics": i += 1; if i < args.count { options.tempoHarmonicWeights = args[i].split(separator: ",").compactMap { Double($0) } }
         case "--min-bpm":
             i += 1; if i < args.count, let v = Double(args[i]) { options.minBPM = v }
         case "--max-bpm":

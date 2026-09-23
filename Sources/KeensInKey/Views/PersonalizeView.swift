@@ -15,7 +15,7 @@ struct PersonalizeView: View {
     var body: some View {
         @Bindable var settings = settings
         let o = settings.tagOptions
-        ScrollView {
+        SnapshotScroll {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Personalize").font(.system(size: 20, weight: .bold))
                 Text("Choose how Keens In Key writes key, energy and BPM results into your music files. Tags are read by rekordbox, Serato, Traktor, Engine DJ and iTunes/Music.")
@@ -117,7 +117,7 @@ struct PersonalizeView: View {
                         }
                         .disabled(!o.renameFile)
                     }
-                    .toggleStyle(.switch)
+                    .toggleStyle(.checkbox)
                 }
 
                 Card {
@@ -147,7 +147,7 @@ struct PersonalizeView: View {
                                 Text("Otherwise use Write Tags in the Analyze tab (⌘T).").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
                             }
                         }
-                        .toggleStyle(.switch)
+                        .toggleStyle(.checkbox)
                         HStack {
                             let ids = library.tracks.filter { $0.result != nil }.map(\.id)
                             Button { FileActions.writeTags(ids: ids, analysis: analysis, state: state) } label: {
@@ -161,8 +161,6 @@ struct PersonalizeView: View {
             .padding(20)
             .frame(maxWidth: 820, alignment: .leading)
         }
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
     }
 
     private func previewComment(_ o: TagWritingOptions, key: MusicalKey, energy: Int, bpm: Double, title: String, artist: String, existing: String) -> String {

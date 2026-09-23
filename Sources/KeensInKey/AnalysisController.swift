@@ -61,7 +61,7 @@ final class AnalysisController {
         let concurrency = max(1, settings.concurrency)
         let options = settings.analysis
         runner = Task { @MainActor [weak self] in
-            await withTaskGroup(of: Void.self) { group in
+            await withTaskGroup(of: UUID.self) { group in
                 var active = 0
                 while true {
                     if Task.isCancelled { break }
@@ -73,14 +73,15 @@ final class AnalysisController {
                         library.update(id) { $0.status = .analyzing; $0.stage = "Starting"; $0.progress = 0 }
                         group.addTask {
                             await AnalysisController.analyze(track: track, options: options, library: library)
+                            return id
                         }
                     }
                     if active == 0 { break }
-                    await group.next()
+                    guard let finished = await group.next() else { break }
                     active -= 1
                     self.completed += 1
-                    if let last = library.tracks.last(where: { $0.status == .done }) {
-                        await self.tagWriter?.autoWriteIfEnabled(trackId: last.id)
+                    if library.track(finished)?.status == .done {
+                        await self.tagWriter?.autoWriteIfEnabled(trackId: finished)
                     }
                 }
             }

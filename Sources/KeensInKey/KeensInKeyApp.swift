@@ -132,8 +132,11 @@ struct AppCommands: Commands {
         }
         CommandMenu("Track") {
             Button(player.isPlaying ? "Pause" : "Play") {
-                if let id = state.primarySelection, let t = library.track(id) { player.load(t, autoplay: !player.isPlaying || player.currentTrackId != id) ; if player.currentTrackId == id, player.isPlaying == false { player.play() } }
-                else { player.toggle() }
+                if let id = state.primarySelection, let t = library.track(id), player.currentTrackId != id {
+                    player.load(t, autoplay: true)
+                } else {
+                    player.toggle()
+                }
             }
             .keyboardShortcut(.space, modifiers: [])
             Button("Reveal in Finder") {

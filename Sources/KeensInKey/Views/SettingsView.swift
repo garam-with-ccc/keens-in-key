@@ -10,7 +10,7 @@ struct SettingsView: View {
 
     var body: some View {
         @Bindable var settings = settings
-        ScrollView {
+        SnapshotScroll {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Settings").font(.system(size: 20, weight: .bold))
 
@@ -47,7 +47,7 @@ struct SettingsView: View {
                             Stepper(value: $settings.concurrency, in: 1...16) { Text("\(settings.concurrency)").monospacedDigit().frame(width: 30) }
                         }
                         row("") {
-                            Toggle("Analyze files automatically when added", isOn: $settings.autoAnalyzeOnAdd).toggleStyle(.switch)
+                            Toggle("Analyze files automatically when added", isOn: $settings.autoAnalyzeOnAdd).toggleStyle(.checkbox)
                         }
                         Text("Changes apply to the next analysis. Use Analysis ▸ Analyze Selected to re-analyze existing tracks.").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
                     }
@@ -108,8 +108,6 @@ struct SettingsView: View {
             .padding(20)
             .frame(maxWidth: 820, alignment: .leading)
         }
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
     }
 
     @ViewBuilder
