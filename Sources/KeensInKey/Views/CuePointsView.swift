@@ -1,7 +1,7 @@
 import SwiftUI
 import KeensInKeyCore
 
-/// Cue point editor with a zoomable waveform.
+/// Cue point editor with a zoomable waveform, beat-grid tools and manual corrections.
 struct CuePointsView: View {
     @Environment(AppState.self) private var state
     @Environment(LibraryStore.self) private var library
@@ -10,6 +10,7 @@ struct CuePointsView: View {
     @Environment(AnalysisController.self) private var analysis
     @State private var zoom: CGFloat = 1
     @State private var selectedCue: UUID?
+    @State private var waveWidth: CGFloat = 900
 
     var body: some View {
         if let id = state.primarySelection ?? library.tracks.first(where: { $0.result != nil })?.id, let track = library.track(id) {
@@ -28,27 +29,41 @@ struct CuePointsView: View {
     private func editor(for track: Track) -> some View {
         @Bindable var settings = settings
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(track.displayTitle).font(.system(size: 17, weight: .bold))
                     Text(track.artist.isEmpty ? track.fileName : track.artist).font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
                 if let r = track.result {
-                    KeyBadge(key: r.key.key, notation: settings.displayNotation, size: 14)
-                    Text("\(settings.formatBPM(r.tempo.bpm)) BPM").font(.system(size: 13, weight: .semibold, design: .rounded))
+                    Menu {
+                        ForEach(1...12, id: \.self) { n in
+                            let minor = MusicalKey.fromCamelot(number: n, mode: .minor), major = MusicalKey.fromCamelot(number: n, mode: .major)
+                            Button("\(minor.camelot)  \(minor.traditional)") { TrackEdits.setKey(minor, ids: [track.id], library: library) }
+                            Button("\(major.camelot)  \(major.traditional)") { TrackEdits.setKey(major, ids: [track.id], library: library) }
+                        }
+                    } label: {
+                        KeyBadge(key: r.key.key, notation: settings.displayNotation, size: 14)
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .help("Override the detected key")
+                    HStack(spacing: 4) {
+                        Text("\(settings.formatBPM(r.tempo.bpm)) BPM").font(.system(size: 13, weight: .semibold, design: .rounded))
+                        Button("½") { TrackEdits.scaleTempo(0.5, ids: [track.id], library: library) }.buttonStyle(ToolbarButtonStyle()).help("Halve BPM")
+                        Button("×2") { TrackEdits.scaleTempo(2, ids: [track.id], library: library) }.buttonStyle(ToolbarButtonStyle()).help("Double BPM")
+                    }
                     Text("Energy \(r.energy)").font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundStyle(energyColor(r.energy))
                 }
             }
 
             ScrollView(.horizontal, showsIndicators: true) {
-                WaveformView(track: track, selectedCueId: selectedCue, showAllBeats: zoom >= 4, onSeek: { t in
+                WaveformView(track: track, selectedCueId: selectedCue, showAllBeats: zoom >= 4, showEnergy: true, onSeek: { t in
                     if player.currentTrackId != track.id { player.load(track) }
                     player.seek(to: t)
                 }, onSelectCue: { cue in
                     selectedCue = cue.id
                 }, onMoveCue: { cue, t in
-                    move(cue: cue, to: t, in: track)
+                    modify(track) { CueEditing.move(cue.id, to: t, in: &$0, mode: settings.quantize) }
                 })
                 .frame(width: max(600, waveWidth * zoom), height: 180)
             }
@@ -68,18 +83,25 @@ struct CuePointsView: View {
             }
 
             HStack(spacing: 8) {
-                Button { addCue(at: player.currentTrackId == track.id ? player.currentTime : 0, in: track) } label: { Label("Add Cue at Playhead", systemImage: "plus.circle") }
+                Button { addCue(in: track) } label: { Label("Add Cue at Playhead", systemImage: "plus.circle") }
                     .buttonStyle(ToolbarButtonStyle(prominent: true))
                     .disabled(track.result == nil || (track.result?.cuePoints.count ?? 0) >= 8)
                 Button { nudge(in: track, beats: -1) } label: { Label("−1 Beat", systemImage: "arrow.left") }.buttonStyle(ToolbarButtonStyle()).disabled(selectedCue == nil)
                 Button { nudge(in: track, beats: 1) } label: { Label("+1 Beat", systemImage: "arrow.right") }.buttonStyle(ToolbarButtonStyle()).disabled(selectedCue == nil)
-                Button { snapAll(in: track) } label: { Label("Quantize All", systemImage: "square.grid.3x3") }.buttonStyle(ToolbarButtonStyle()).disabled(track.result == nil)
+                Button { modify(track) { CueEditing.snapAll(in: &$0, mode: settings.quantize) } } label: { Label("Quantize All", systemImage: "square.grid.3x3") }
+                    .buttonStyle(ToolbarButtonStyle()).disabled(track.result == nil)
                 Picker("Grid", selection: $settings.quantize) {
                     ForEach(QuantizeMode.allCases) { m in Text(m.displayName).tag(m) }
                 }
                 .frame(width: 170)
                 Button(role: .destructive) { deleteSelected(in: track) } label: { Label("Delete", systemImage: "trash") }.buttonStyle(ToolbarButtonStyle(destructive: true)).disabled(selectedCue == nil)
                 Spacer()
+                HStack(spacing: 4) {
+                    Text("Downbeat").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                    Button { TrackEdits.shiftDownbeat(-1, id: track.id, library: library) } label: { Image(systemName: "chevron.left") }.buttonStyle(ToolbarButtonStyle()).help("Move the downbeat one beat earlier")
+                    Button { TrackEdits.shiftDownbeat(1, id: track.id, library: library) } label: { Image(systemName: "chevron.right") }.buttonStyle(ToolbarButtonStyle()).help("Move the downbeat one beat later")
+                }
+                .disabled(track.result == nil)
                 Button { analysis.enqueue([track.id], force: true) } label: { Label("Re-detect", systemImage: "arrow.clockwise") }.buttonStyle(ToolbarButtonStyle())
             }
 
@@ -91,11 +113,11 @@ struct CuePointsView: View {
                             .background(Color(hex: c.kind.colorHex), in: RoundedRectangle(cornerRadius: 4))
                     }.width(36)
                     TableColumn("Name") { c in
-                        TextField("Name", text: Binding(get: { c.name }, set: { newName in rename(cue: c, to: newName, in: track) }))
+                        TextField("Name", text: Binding(get: { c.name }, set: { newName in modify(track) { CueEditing.rename(c.id, to: newName, in: &$0) } }))
                             .textFieldStyle(.plain)
                     }.width(min: 120, ideal: 180)
                     TableColumn("Type") { c in
-                        Picker("", selection: Binding(get: { c.kind }, set: { k in setKind(cue: c, kind: k, in: track) })) {
+                        Picker("", selection: Binding(get: { c.kind }, set: { k in modify(track) { CueEditing.setKind(c.id, k, in: &$0) } })) {
                             ForEach(CueKind.allCases, id: \.self) { k in Text(k.defaultName).tag(k) }
                         }
                         .labelsHidden()
@@ -112,84 +134,61 @@ struct CuePointsView: View {
                 .background(Theme.panel)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.border))
+                Text("Keys 1–8 jump to a cue · Space plays / pauses · drag a flag on the waveform to move it (snaps to the grid)")
+                    .font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
             }
         }
         .padding(16)
+        .background(HotkeyCatcher(track: track))
     }
 
-    @State private var waveWidth: CGFloat = 900
-
-    private func modify(_ track: Track, _ f: (inout [CuePoint]) -> Void) {
+    private func modify(_ track: Track, _ f: (inout AnalysisResult) -> Void) {
         library.update(track.id) { t in
             guard var r = t.result else { return }
-            f(&r.cuePoints)
-            r.cuePoints.sort { $0.time < $1.time }
-            for i in r.cuePoints.indices { r.cuePoints[i].slot = i + 1 }
+            f(&r)
             t.result = r
+            t.tagsWrittenAt = nil
         }
     }
 
-    private func quantized(_ time: Double, _ r: AnalysisResult) -> (Double, Int?) {
-        let q = StructureAnalyzer.quantize(time: time, beats: r.tempo.beats, downbeatPhase: r.tempo.downbeatPhase, mode: settings.quantize)
-        let bar = q.bar ?? StructureAnalyzer.barNumber(for: q.time, beats: r.tempo.beats, downbeatPhase: r.tempo.downbeatPhase)
-        return (q.time, bar)
-    }
-
-    private func addCue(at time: Double, in track: Track) {
-        guard let r = track.result else { return }
-        let (t, bar) = quantized(time, r)
-        let cue = CuePoint(slot: r.cuePoints.count + 1, name: "Cue \(r.cuePoints.count + 1)", kind: .custom, time: t, bar: bar, energy: r.energy)
-        modify(track) { $0.append(cue) }
-        selectedCue = cue.id
-    }
-
-    private func move(cue: CuePoint, to time: Double, in track: Track) {
-        guard let r = track.result else { return }
-        let (t, bar) = quantized(time, r)
-        modify(track) { cues in
-            if let i = cues.firstIndex(where: { $0.id == cue.id }) { cues[i].time = t; cues[i].bar = bar }
-        }
+    private func addCue(in track: Track) {
+        let time = player.currentTrackId == track.id ? player.currentTime : 0
+        var newId: UUID?
+        modify(track) { r in newId = CueEditing.add(at: time, to: &r, mode: settings.quantize, maxCues: settings.analysis.cueCount)?.id }
+        if let newId { selectedCue = newId }
     }
 
     private func nudge(in track: Track, beats: Int) {
-        guard let r = track.result, let id = selectedCue, let cue = r.cuePoints.first(where: { $0.id == id }), !r.tempo.beats.isEmpty else { return }
-        let bs = r.tempo.beats
-        var idx = bs.indices.min(by: { abs(bs[$0] - cue.time) < abs(bs[$1] - cue.time) }) ?? 0
-        idx = max(0, min(bs.count - 1, idx + beats))
-        let t = bs[idx]
-        let bar = StructureAnalyzer.barNumber(for: t, beats: bs, downbeatPhase: r.tempo.downbeatPhase)
-        modify(track) { cues in
-            if let i = cues.firstIndex(where: { $0.id == id }) { cues[i].time = t; cues[i].bar = bar }
-        }
-    }
-
-    private func snapAll(in track: Track) {
-        guard let r = track.result else { return }
-        modify(track) { cues in
-            for i in cues.indices {
-                let (t, bar) = quantized(cues[i].time, r)
-                cues[i].time = t; cues[i].bar = bar
-            }
-        }
+        guard let id = selectedCue else { return }
+        modify(track) { CueEditing.nudge(id, beats: beats, in: &$0) }
     }
 
     private func deleteSelected(in track: Track) {
         guard let id = selectedCue else { return }
-        modify(track) { $0.removeAll { $0.id == id } }
+        modify(track) { CueEditing.delete(id, in: &$0) }
         selectedCue = nil
     }
+}
 
-    private func rename(cue: CuePoint, to name: String, in track: Track) {
-        modify(track) { cues in if let i = cues.firstIndex(where: { $0.id == cue.id }) { cues[i].name = name } }
-    }
+/// Invisible view providing number-key shortcuts (1–8 jump to hot cues) while the cue page is shown.
+private struct HotkeyCatcher: View {
+    let track: Track
+    @Environment(Player.self) private var player
 
-    private func setKind(cue: CuePoint, kind: CueKind, in track: Track) {
-        modify(track) { cues in
-            if let i = cues.firstIndex(where: { $0.id == cue.id }) {
-                let wasDefault = cues[i].name == cues[i].kind.defaultName || cues[i].name.hasPrefix(cues[i].kind.defaultName + " ")
-                cues[i].kind = kind
-                if wasDefault { cues[i].name = kind.defaultName }
+    var body: some View {
+        ZStack {
+            ForEach(1...8, id: \.self) { n in
+                Button("") {
+                    guard let cue = track.result?.cuePoints.first(where: { $0.slot == n }) else { return }
+                    if player.currentTrackId != track.id { player.load(track) }
+                    player.seek(to: cue.time)
+                    if !player.isPlaying { player.play() }
+                }
+                .keyboardShortcut(KeyEquivalent(Character(String(n))), modifiers: [])
             }
         }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 }

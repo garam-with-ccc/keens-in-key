@@ -112,6 +112,7 @@ struct AppCommands: Commands {
             Divider()
             Button("Export CSV…") { FileActions.export(.csv, library: library, settings: settings, state: state) }
             Button("Export rekordbox XML…") { FileActions.export(.rekordbox, library: library, settings: settings, state: state) }
+            Button("Export Traktor NML…") { FileActions.export(.traktor, library: library, settings: settings, state: state) }
             Button("Export M3U Playlist…") { FileActions.export(.m3u, library: library, settings: settings, state: state) }
         }
         CommandMenu("Analysis") {
@@ -131,6 +132,17 @@ struct AppCommands: Commands {
                 .keyboardShortcut("t", modifiers: [.command, .shift])
         }
         CommandMenu("Track") {
+            Menu("Set Key") {
+                ForEach(1...12, id: \.self) { n in
+                    let minor = MusicalKey.fromCamelot(number: n, mode: .minor), major = MusicalKey.fromCamelot(number: n, mode: .major)
+                    Button("\(minor.camelot)  \(minor.traditional)") { TrackEdits.setKey(minor, ids: state.selection, library: library) }
+                    Button("\(major.camelot)  \(major.traditional)") { TrackEdits.setKey(major, ids: state.selection, library: library) }
+                }
+            }
+            .disabled(state.selection.isEmpty)
+            Button("Double BPM") { TrackEdits.scaleTempo(2, ids: state.selection, library: library) }.disabled(state.selection.isEmpty)
+            Button("Halve BPM") { TrackEdits.scaleTempo(0.5, ids: state.selection, library: library) }.disabled(state.selection.isEmpty)
+            Divider()
             Button(player.isPlaying ? "Pause" : "Play") {
                 if let id = state.primarySelection, let t = library.track(id), player.currentTrackId != id {
                     player.load(t, autoplay: true)
@@ -160,6 +172,41 @@ struct AppCommands: Commands {
             Button("Keens In Key on GitHub") {
                 if let url = URL(string: "https://github.com/garam-with-ccc/keens-in-key") { NSWorkspace.shared.open(url) }
             }
+        }
+    }
+}
+
+
+/// Manual corrections applied to analysed tracks.
+@MainActor
+enum TrackEdits {
+    static func setKey(_ key: MusicalKey, ids: Set<UUID>, library: LibraryStore) {
+        for id in ids {
+            library.update(id) { t in
+                guard var r = t.result else { return }
+                CueEditing.setKey(key, in: &r)
+                t.result = r
+                t.tagsWrittenAt = nil
+            }
+        }
+    }
+
+    static func scaleTempo(_ factor: Double, ids: Set<UUID>, library: LibraryStore) {
+        for id in ids {
+            library.update(id) { t in
+                guard var r = t.result else { return }
+                CueEditing.scaleTempo(by: factor, in: &r)
+                t.result = r
+                t.tagsWrittenAt = nil
+            }
+        }
+    }
+
+    static func shiftDownbeat(_ beats: Int, id: UUID, library: LibraryStore) {
+        library.update(id) { t in
+            guard var r = t.result else { return }
+            CueEditing.shiftDownbeat(by: beats, in: &r)
+            t.result = r
         }
     }
 }

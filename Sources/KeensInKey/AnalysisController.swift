@@ -170,7 +170,8 @@ final class TagWriteCoordinator {
                 ? options.expand(options.fileNameFormat, key: result.key.key, energy: result.energy, bpm: result.tempo.bpm, title: title, artist: artist)
                 : nil
             do {
-                let newURL = try await TagService.write(fields, to: t.url, rename: rename)
+                let serato = options.writeSeratoCues ? TagService.SeratoPayload(result: result) : nil
+                let newURL = try await TagService.write(fields, to: t.url, rename: rename, serato: serato)
                 let refreshed = await TagService.read(newURL)
                 library.update(id) { tr in
                     tr.path = newURL.path

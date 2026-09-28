@@ -6,6 +6,7 @@ struct WaveformView: View {
     let track: Track
     var selectedCueId: UUID? = nil
     var showAllBeats = false
+    var showEnergy = false
     var onSeek: (Double) -> Void
     var onSelectCue: ((CuePoint) -> Void)? = nil
     var onMoveCue: ((CuePoint, Double) -> Void)? = nil
@@ -87,6 +88,20 @@ struct WaveformView: View {
             ctx.stroke(Path { p in p.move(to: CGPoint(x: 0, y: mid)); p.addLine(to: CGPoint(x: w, y: mid)) }, with: .color(Theme.border), lineWidth: 1)
             let text = Text(track.status == .analyzing ? "Analyzing… \(track.stage)" : "Not analyzed yet").font(.system(size: 11)).foregroundColor(Theme.textSecondary)
             ctx.draw(text, at: CGPoint(x: w / 2, y: mid))
+        }
+
+        // Energy curve (per second, 0…1) as a translucent area behind the top half.
+        if showEnergy, let curve = track.result?.energyCurve, curve.count > 1 {
+            var area = Path()
+            area.move(to: CGPoint(x: 0, y: h))
+            for (i, v) in curve.enumerated() {
+                let x = CGFloat(i) / CGFloat(curve.count - 1) * w
+                let y = h - CGFloat(v) * (h - waveTop) * 0.9
+                area.addLine(to: CGPoint(x: x, y: y))
+            }
+            area.addLine(to: CGPoint(x: w, y: h))
+            area.closeSubpath()
+            ctx.fill(area, with: .linearGradient(Gradient(colors: [Theme.accent.opacity(0.22), Theme.accent.opacity(0.04)]), startPoint: CGPoint(x: 0, y: waveTop), endPoint: CGPoint(x: 0, y: h)))
         }
 
         // Beat grid.
@@ -175,6 +190,10 @@ struct TransportBar: View {
             }
             if let extra { extra }
             Spacer()
+            HStack(spacing: 4) {
+                Image(systemName: "speaker.wave.2").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+                Slider(value: Binding(get: { Double(player.volume) }, set: { player.volume = Float($0) }), in: 0...1).frame(width: 80)
+            }
         }
     }
 }

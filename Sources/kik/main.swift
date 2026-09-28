@@ -11,9 +11,10 @@ func usage() -> Never {
       kik analyze [--json] [--profile shaath|edma|krumhansl|temperley] [--similarity cosine|pearson] [--frame-norm]
                   [--min-bpm N] [--max-bpm N] <file|folder> …
       kik tags <file> …              Print the tags stored in files
-      kik write [--key 8A] [--bpm 128] [--energy 7] [--notation camelot|openKey|traditional] [--no-comment] [--grouping] <file> …
-                                     Write key / BPM / energy tags (uses the analysis result when --key is omitted)
-      kik export --csv|--rekordbox|--m3u <out> <file|folder> …   Analyse and export
+      kik write [--key 8A] [--bpm 128] [--energy 7] [--notation camelot|openKey|traditional] [--no-comment] [--grouping] [--serato] <file> …
+                                     Write key / BPM / energy tags (uses the analysis result when --key is omitted);
+                                     --serato also embeds Serato Markers2 cue points and the beat grid
+      kik export --csv|--rekordbox|--traktor|--m3u <out> <file|folder> …   Analyse and export
       kik keys                       Print the Camelot wheel
       kik compat <key>               Print keys compatible with <key> (e.g. 8A, Am, 1m)
     """
@@ -149,6 +150,7 @@ case "write":
         case "--overwrite-comment": options.commentMode = .overwrite
         case "--rename": options.renameFile = true
         case "--prefix-title": options.prefixTitle = true
+        case "--serato": options.writeSeratoCues = true
         default: paths.append(a)
         }
         i += 1
@@ -176,8 +178,9 @@ case "write":
                 let artist = existing.artist ?? ""
                 let fields = TagService.fields(for: result, existing: existing, options: options, title: title, artist: artist)
                 let rename = options.renameFile ? options.expand(options.fileNameFormat, key: result.key.key, energy: result.energy, bpm: result.tempo.bpm, title: title, artist: artist) : nil
-                let newURL = try await TagService.write(fields, to: url, rename: rename)
-                print("\(url.lastPathComponent) -> key \(fields.initialKey ?? "-") bpm \(fields.bpm ?? "-") comment \"\(fields.comment ?? "-")\"\(newURL != url ? " renamed to \(newURL.lastPathComponent)" : "")")
+                let serato = options.writeSeratoCues ? TagService.SeratoPayload(result: result) : nil
+                let newURL = try await TagService.write(fields, to: url, rename: rename, serato: serato)
+                print("\(url.lastPathComponent) -> key \(fields.initialKey ?? "-") bpm \(fields.bpm ?? "-") comment \"\(fields.comment ?? "-")\"\(serato != nil ? " serato cues \(serato!.cues.count)" : "")\(newURL != url ? " renamed to \(newURL.lastPathComponent)" : "")")
             } catch {
                 print("\(url.lastPathComponent): ERROR \(error.localizedDescription)")
             }
@@ -206,6 +209,7 @@ case "export":
         switch mode {
         case "--csv": text = Exporters.csv(rows, notation: .camelot)
         case "--rekordbox": text = Exporters.rekordboxXML(rows)
+        case "--traktor": text = TraktorNML.export(rows)
         case "--m3u": text = Exporters.m3u(rows)
         default: usage()
         }

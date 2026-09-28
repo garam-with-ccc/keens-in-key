@@ -72,6 +72,7 @@ struct AnalyzeToolbar: View {
             Menu {
                 Button("CSV…") { FileActions.export(.csv, library: library, settings: settings, state: state) }
                 Button("rekordbox XML…") { FileActions.export(.rekordbox, library: library, settings: settings, state: state) }
+                Button("Traktor NML…") { FileActions.export(.traktor, library: library, settings: settings, state: state) }
                 Button("M3U Playlist…") { FileActions.export(.m3u, library: library, settings: settings, state: state) }
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
@@ -207,6 +208,16 @@ struct TrackTable: View {
             Button("Play") { if let id = sel.first, let t = library.track(id) { player.load(t, autoplay: true) } }
             Button("Analyze") { analysis.enqueue(Array(sel), force: true) }
             Button("Write Tags") { FileActions.writeTags(ids: Array(sel), analysis: analysis, state: state) }
+            Divider()
+            Menu("Set Key") {
+                ForEach(1...12, id: \.self) { n in
+                    let minor = MusicalKey.fromCamelot(number: n, mode: .minor), major = MusicalKey.fromCamelot(number: n, mode: .major)
+                    Button("\(minor.camelot)  \(minor.traditional)") { TrackEdits.setKey(minor, ids: sel, library: library) }
+                    Button("\(major.camelot)  \(major.traditional)") { TrackEdits.setKey(major, ids: sel, library: library) }
+                }
+            }
+            Button("Double BPM") { TrackEdits.scaleTempo(2, ids: sel, library: library) }
+            Button("Halve BPM") { TrackEdits.scaleTempo(0.5, ids: sel, library: library) }
             Divider()
             Button("Show Cue Points") { if let id = sel.first { state.selection = [id]; state.page = .cues } }
             Button("Show on Camelot Wheel") { if let id = sel.first, let k = library.track(id)?.key { state.wheelKey = k; state.page = .wheel } }

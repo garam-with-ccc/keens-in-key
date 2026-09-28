@@ -31,7 +31,9 @@
 | **Cue points** | Up to 8 cue points at section changes (Intro / Verse / Build / Drop / Break / Outro), **quantized** to the beat grid (beat, bar, 4 or 8 bars). Edit, nudge, drag and re-quantize them on a zoomable waveform. |
 | **Camelot wheel** | Interactive wheel highlighting harmonic neighbours, relative keys, energy-boost and mood-change mixes, plus the compatible tracks already in your library. |
 | **Tag writing** | Writes key / BPM / energy into **MP3, AIFF, WAV (ID3v2), FLAC (Vorbis comments) and M4A/AAC (iTunes atoms, incl. `initialkey`)** files without re-encoding. Personalize where the result goes: Initial Key tag, comment, grouping, title prefix, file name. |
-| **Export** | CSV, **rekordbox XML** (with tempo grid and hot cues) and M3U playlists. |
+| **DJ software** | Cue points and the beat grid can be embedded in the files in **Serato** format (read by Serato DJ and Engine DJ); **rekordbox XML** (tempo grid, coloured hot cues) and **Traktor NML** collections are exported for import. |
+| **Corrections** | Override a wrong key, halve or double the BPM, shift the downbeat, and edit cue points; tags are rewritten from the corrected values. |
+| **Export** | CSV, rekordbox XML, Traktor NML and M3U playlists. |
 | **Batch** | Drag & drop files or folders; parallel analysis (about a second per track on Apple silicon); results persist in a local library. |
 
 Supported input: MP3, M4A/AAC/ALAC, WAV, AIFF, FLAC, CAF (anything Core Audio decodes).
@@ -70,9 +72,10 @@ The app bundle ships with a CLI (`Keens In Key.app/Contents/MacOS/kik`), also bu
 
 ```bash
 kik analyze --json ~/Music/DJ/*.mp3          # key / bpm / energy / cues per file
-kik write --grouping ~/Music/DJ/*.mp3         # analyse and write tags
+kik write --grouping --serato ~/Music/DJ/*.mp3   # analyse, write tags and Serato cue points
 kik tags track.m4a                            # show stored tags
 kik export --rekordbox rekordbox.xml ~/Music/DJ
+kik export --traktor collection.nml ~/Music/DJ
 kik compat 8A                                 # compatible keys
 ```
 
@@ -94,7 +97,7 @@ Xcode 16 / Swift 5.10 or newer. The project is a plain Swift package: `KeensInKe
 
 ## Roadmap / ideas
 
-* Serato / Traktor cue-point export, Rekordbox database sync
+* Rekordbox database sync, Engine DJ database export
 * Live mode: analyse the current deck in real time
 * Mashup helper: pick harmonically compatible stems
 * Batch "energy set" builder and playlist ordering by Camelot distance
@@ -107,7 +110,9 @@ Xcode 16 / Swift 5.10 or newer. The project is a plain Swift package: `KeensInKe
 * 큐 포인트는 비트 그리드에 **퀀타이즈**되며(비트/마디/4마디/8마디), 파형 위에서 드래그·나지·재퀀타이즈할 수 있습니다.
 * Camelot Wheel 탭에서 호환 키와 라이브러리 내 호환 트랙을 확인할 수 있습니다.
 * Personalize 탭에서 태그 기록 방식(Initial Key, 코멘트 형식, 그룹, 제목 접두어, 파일명)을 설정합니다.
-* CSV / rekordbox XML / M3U로 내보낼 수 있습니다.
+* 큐 포인트와 비트 그리드를 Serato 형식으로 파일에 직접 기록할 수 있고(Serato DJ·Engine DJ에서 인식), rekordbox XML과 Traktor NML로도 내보냅니다.
+* 잘못 잡힌 키는 직접 바꾸고, BPM은 ½·×2, 다운비트는 한 비트씩 옮길 수 있습니다.
+* CSV / rekordbox XML / Traktor NML / M3U로 내보낼 수 있습니다.
 
 설치: 릴리즈에서 DMG를 받아 응용 프로그램 폴더로 옮기면 됩니다. Developer ID 서명과 Apple 공증을 거친 빌드라 Gatekeeper 경고 없이 바로 열립니다.
 

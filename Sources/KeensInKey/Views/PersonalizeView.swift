@@ -99,6 +99,13 @@ struct PersonalizeView: View {
                             }
                         }
                         Divider()
+                        Toggle(isOn: $settings.tagOptions.writeSeratoCues) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Cue points and beat grid for Serato DJ / Engine DJ").font(.system(size: 13, weight: .medium))
+                                Text("Serato Markers2 + BeatGrid tags inside the file (rekordbox and Traktor use the XML / NML exports)").font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                        Divider()
                         Toggle(isOn: $settings.tagOptions.prefixTitle) {
                             Text("Add key to the song title").font(.system(size: 13, weight: .medium))
                         }
@@ -133,6 +140,7 @@ struct PersonalizeView: View {
                         previewRow("Comment", o.writeComment ? previewComment(o, key: key, energy: energy, bpm: bpm, title: title, artist: artist, existing: existingComment) : "—")
                         previewRow("Grouping", o.writeGrouping ? o.expand(o.groupingFormat, key: key, energy: energy, bpm: bpm, title: title, artist: artist) : "—")
                         previewRow("BPM", o.writeBPM ? TagWritingOptions.formatBPM(bpm, decimals: o.bpmDecimals) : "—")
+                        previewRow("Serato cues", o.writeSeratoCues ? "\(sampleTrack?.result?.cuePoints.count ?? 8) hot cues + beat grid" : "—")
                         previewRow("Title", o.prefixTitle ? o.expand(o.titleFormat, key: key, energy: energy, bpm: bpm, title: TagService.stripPreviousTag(title), artist: artist) : title)
                         previewRow("File name", o.renameFile ? TagService.sanitizeFileName(o.expand(o.fileNameFormat, key: key, energy: energy, bpm: bpm, title: title, artist: artist)) + "." + (sampleTrack?.url.pathExtension ?? "mp3") : (sampleTrack?.fileName ?? "song.mp3"))
                     }

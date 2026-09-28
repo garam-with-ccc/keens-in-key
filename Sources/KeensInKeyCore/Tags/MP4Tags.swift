@@ -50,8 +50,17 @@ public enum MP4Tagger {
         return f
     }
 
+    /// Reads one freeform atom (`----:mean:name`) as text.
+    public static func readFreeform(_ url: URL, mean: String, name: String) throws -> String? {
+        try MP4Atoms.readFreeform(url, mean: mean, name: name)?.text
+    }
+
     /// Writes the non-nil fields of `fields` (nil fields are left untouched, empty strings remove the atom).
-    public static func write(_ fields: TagFields, to url: URL) async throws {
+    /// `freeform` adds extra `----` atoms (mean + name → text), e.g. Serato's `com.serato.dj` / `markersv2`.
+    /// Freeform atoms with a mean other than com.apple.iTunes are preserved byte-for-byte across the re-mux,
+    /// because AVFoundation cannot write them.
+    public static func write(_ fields: TagFields, to url: URL, freeform: [MP4Atoms.Freeform] = []) async throws {
+        let preserved = ((try? MP4Atoms.readFreeform(url)) ?? []).filter { $0.mean != "com.apple.iTunes" }
         let asset = AVURLAsset(url: url)
         let existing = try await asset.load(.metadata)
 
@@ -94,7 +103,13 @@ public enum MP4Tagger {
         if let v = fields.initialKey { addFreeform(initialKeyKey, v) }
         if let v = fields.energy { addFreeform(energyKey, v) }
 
-        let kept = existing.filter { !replaced.contains($0.identifier?.rawValue ?? "") }
+        let kept = existing.filter { item in
+            guard let id = item.identifier?.rawValue else { return false }
+            if replaced.contains(id) { return false }
+            // Non-iTunes freeform atoms are re-added from the raw atoms below.
+            if id.hasPrefix("itlk/") && !id.hasPrefix("itlk/com.apple.iTunes") { return false }
+            return true
+        }
         let items = kept + newItems
 
         guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else {
@@ -115,6 +130,10 @@ public enum MP4Tagger {
             throw ID3Error.io("export failed with status \(export.status.rawValue)")
         }
         do {
+            let replacedKeys = Set(freeform.map { "\($0.mean)\u{0}\($0.name)" })
+            let toWrite = preserved.filter { !replacedKeys.contains("\($0.mean)\u{0}\($0.name)") } + freeform
+            // Always run the atom pass: it also removes the malformed freeform atoms the export may have produced.
+            try MP4Atoms.writeFreeform(tmp, set: toWrite)
             _ = try FileManager.default.replaceItemAt(url, withItemAt: tmp)
         } catch {
             try? FileManager.default.removeItem(at: tmp)

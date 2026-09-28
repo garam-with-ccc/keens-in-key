@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import KeensInKeyCore
 
-enum ExportKind { case csv, rekordbox, m3u }
+enum ExportKind { case csv, rekordbox, traktor, m3u }
 
 @MainActor
 enum FileActions {
@@ -57,6 +57,10 @@ enum FileActions {
             panel.allowedContentTypes = [.xml]
             panel.nameFieldStringValue = "rekordbox.xml"
             text = Exporters.rekordboxXML(rows, notation: settings.tagOptions.notation, appVersion: AppInfo.version)
+        case .traktor:
+            panel.allowedContentTypes = [UTType(filenameExtension: "nml") ?? .xml]
+            panel.nameFieldStringValue = "keens-in-key.nml"
+            text = TraktorNML.export(rows, notation: settings.tagOptions.notation == .camelot ? .openKey : settings.tagOptions.notation)
         case .m3u:
             panel.allowedContentTypes = [UTType("public.m3u-playlist") ?? .plainText]
             panel.nameFieldStringValue = "keens-in-key.m3u8"

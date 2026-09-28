@@ -57,6 +57,19 @@ public enum Exporters {
             .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
     }
 
+    /// rekordbox only accepts its own palette for hot cue colours.
+    static func rekordboxColor(_ kind: CueKind) -> (Int, Int, Int) {
+        switch kind {
+        case .intro: return (40, 226, 20)        // green
+        case .verse: return (48, 90, 255)        // blue
+        case .build: return (255, 140, 0)        // orange
+        case .drop: return (230, 40, 40)         // red
+        case .breakdown: return (0, 224, 255)    // cyan
+        case .outro: return (180, 50, 255)       // purple
+        case .custom: return (255, 200, 0)       // yellow
+        }
+    }
+
     static func rekordboxLocation(_ url: URL) -> String {
         let allowed = CharacterSet.urlPathAllowed
         let path = url.path.addingPercentEncoding(withAllowedCharacters: allowed) ?? url.path
@@ -90,7 +103,9 @@ public enum Exporters {
             if let r, !r.tempo.beats.isEmpty, r.tempo.bpm > 0 {
                 out += "      <TEMPO Inizio=\"\(String(format: "%.3f", r.tempo.firstDownbeat))\" Bpm=\"\(String(format: "%.2f", r.tempo.bpm))\" Metro=\"4/4\" Battito=\"1\"/>\n"
                 for (ci, cue) in r.cuePoints.prefix(8).enumerated() {
-                    out += "      <POSITION_MARK Name=\"\(xmlEscape(cue.name))\" Type=\"0\" Start=\"\(String(format: "%.3f", cue.time))\" Num=\"\(ci)\"/>\n"
+                    let rgb = rekordboxColor(cue.kind)
+                    let color = " Red=\"\(rgb.0)\" Green=\"\(rgb.1)\" Blue=\"\(rgb.2)\""
+                    out += "      <POSITION_MARK Name=\"\(xmlEscape(cue.name))\" Type=\"0\" Start=\"\(String(format: "%.3f", cue.time))\" Num=\"\(ci)\"\(color)/>\n"
                     out += "      <POSITION_MARK Name=\"\(xmlEscape(cue.name))\" Type=\"0\" Start=\"\(String(format: "%.3f", cue.time))\" Num=\"-1\"/>\n"
                 }
             }

@@ -31,6 +31,8 @@ public struct TagWritingOptions: Codable, Hashable, Sendable {
     public var renameFile = false
     public var fileNameFormat = "{key} - {artist} - {title}"
     public var autoWriteAfterAnalysis = false
+    /// Store cue points and the beat grid inside the file in Serato's format (read by Serato DJ and Engine DJ).
+    public var writeSeratoCues = false
 
     public init() {}
 
@@ -104,6 +106,28 @@ public enum TagService {
         return await readViaAVFoundation(url)
     }
 
+    /// Reads Serato hot cues stored in the file, if any.
+    public static func readSeratoCues(_ url: URL) async -> [SeratoTags.Cue] {
+        switch format(of: url) {
+        case .mp3:
+            if let (tag, _) = try? ID3File.readMP3(url), let tag { return SeratoTags.cues(in: tag) }
+        case .aiff, .wav:
+            if let tag = try? ID3File.readChunked(url) { return SeratoTags.cues(in: tag) }
+        case .flac:
+            if let vc = try? FLACFile.readComment(url), let text = vc.first("SERATO_MARKERS_V2"),
+               let data = SeratoTags.geobData(fromContainerText: text, expectedName: "Serato Markers2") {
+                return SeratoTags.parseMarkersGEOBData(data)
+            }
+        case .mp4:
+            if let text = try? MP4Tagger.readFreeform(url, mean: "com.serato.dj", name: "markersv2"),
+               let data = SeratoTags.geobData(fromContainerText: text, expectedName: "Serato Markers2") {
+                return SeratoTags.parseMarkersGEOBData(data)
+            }
+        case .unsupported: break
+        }
+        return []
+    }
+
     static func fields(from tag: ID3Tag) -> TagFields {
         TagFields(title: tag.title, artist: tag.artist, album: tag.album, genre: tag.genre, comment: tag.comment() ?? tag.userText("comment"),
                   grouping: tag.grouping, initialKey: tag.initialKey, bpm: tag.bpm, energy: tag.userText("ENERGYLEVEL"))
@@ -171,16 +195,33 @@ public enum TagService {
         return text
     }
 
-    /// Writes `fields` to the file. Returns the (possibly renamed) URL.
-    public static func write(_ fields: TagFields, to url: URL, rename: String? = nil) async throws -> URL {
+    /// Serato cue points / beat grid to embed alongside the tags.
+    public struct SeratoPayload: Sendable {
+        public var cues: [SeratoTags.Cue]
+        public var firstBeat: Double?
+        public var bpm: Double?
+        public init(cues: [SeratoTags.Cue], firstBeat: Double?, bpm: Double?) {
+            self.cues = cues; self.firstBeat = firstBeat; self.bpm = bpm
+        }
+        public init(result: AnalysisResult) {
+            cues = SeratoTags.cues(from: result)
+            firstBeat = result.tempo.beats.isEmpty ? nil : result.tempo.beats[0]
+            bpm = result.tempo.bpm
+        }
+    }
+
+    /// Writes `fields` (and optionally Serato cue data) to the file. Returns the (possibly renamed) URL.
+    public static func write(_ fields: TagFields, to url: URL, rename: String? = nil, serato: SeratoPayload? = nil) async throws -> URL {
         switch format(of: url) {
         case .mp3:
             var tag = (try ID3File.readMP3(url).tag) ?? ID3Tag(version: 3)
             apply(fields, to: &tag)
+            if let s = serato { SeratoTags.apply(cues: s.cues, firstBeat: s.firstBeat, bpm: s.bpm, to: &tag) }
             try ID3File.writeMP3(tag, to: url)
         case .aiff, .wav:
             var tag = (try ID3File.readChunked(url)) ?? ID3Tag(version: 3)
             apply(fields, to: &tag)
+            if let s = serato { SeratoTags.apply(cues: s.cues, firstBeat: s.firstBeat, bpm: s.bpm, to: &tag) }
             try ID3File.writeChunked(tag, to: url)
         case .flac:
             var vc = (try FLACFile.readComment(url)) ?? VorbisComment()
@@ -193,9 +234,24 @@ public enum TagService {
             if let v = fields.initialKey { vc.set("INITIALKEY", v) }
             if let v = fields.bpm { vc.set("BPM", v) }
             if let v = fields.energy { vc.set("ENERGYLEVEL", v) }
+            if let s = serato {
+                vc.set("SERATO_MARKERS_V2", SeratoTags.containerText(name: "Serato Markers2", geobData: SeratoTags.markersGEOBData(cues: s.cues)))
+                if let fb = s.firstBeat, let bpm = s.bpm, bpm > 0 {
+                    vc.set("SERATO_BEATGRID", SeratoTags.containerText(name: "Serato BeatGrid", geobData: SeratoTags.beatGridGEOBData(firstBeatSeconds: fb, bpm: bpm)))
+                }
+            }
             try FLACFile.writeComment(vc, to: url)
         case .mp4:
-            try await MP4Tagger.write(fields, to: url)
+            var freeform: [MP4Atoms.Freeform] = []
+            if let s = serato {
+                freeform.append(MP4Atoms.Freeform(mean: "com.serato.dj", name: "markersv2",
+                                                  text: SeratoTags.containerText(name: "Serato Markers2", geobData: SeratoTags.markersGEOBData(cues: s.cues))))
+                if let fb = s.firstBeat, let bpm = s.bpm, bpm > 0 {
+                    freeform.append(MP4Atoms.Freeform(mean: "com.serato.dj", name: "beatgrid",
+                                                      text: SeratoTags.containerText(name: "Serato BeatGrid", geobData: SeratoTags.beatGridGEOBData(firstBeatSeconds: fb, bpm: bpm))))
+                }
+            }
+            try await MP4Tagger.write(fields, to: url, freeform: freeform)
         case .unsupported:
             throw ID3Error.io("Tag writing is not supported for .\(url.pathExtension) files")
         }
