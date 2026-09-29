@@ -57,17 +57,38 @@ struct DetailPanel: View {
                 Button { state.wheelKey = track.key; state.page = .wheel } label: { Label("Wheel", systemImage: "circle.hexagongrid") }
                     .buttonStyle(ToolbarButtonStyle()).disabled(track.key == nil)
             }
-            WaveformView(track: track) { t in
-                if player.currentTrackId != track.id { player.load(track) }
-                player.seek(to: t)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 8) {
+                    WaveformView(track: track) { t in
+                        if player.currentTrackId != track.id { player.load(track) }
+                        player.seek(to: t)
+                    }
+                    .frame(height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.border))
+                    TransportBar(track: track)
+                }
+                if state.showSongInfo {
+                    SongInfoEditor(track: track).frame(width: 300)
+                }
             }
-            .frame(height: 96)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.border))
-            TransportBar(track: track)
+            HStack(spacing: 6) {
+                if !track.tagIds.isEmpty {
+                    Image(systemName: "tag").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+                    ForEach(library.tagCategories) { cat in
+                        ForEach(cat.tags.filter { track.tagIds.contains($0.id) }) { tag in
+                            Text(tag.name).font(.system(size: 10.5)).padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(Theme.panelRaised, in: Capsule()).overlay(Capsule().strokeBorder(Theme.border))
+                        }
+                    }
+                }
+                Spacer()
+                Button { state.showSongInfo.toggle() } label: { Label(state.showSongInfo ? "Hide Song Info" : "Song Info", systemImage: "info.circle") }
+                    .buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+            }
         }
         .padding(14)
         .background(Theme.panel)
-        .frame(height: 240)
+        .frame(height: state.showSongInfo ? 300 : 262)
     }
 }

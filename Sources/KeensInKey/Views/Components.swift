@@ -52,6 +52,8 @@ struct ToolbarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .semibold))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(prominent ? Color.black.opacity(0.9) : (destructive ? Theme.danger : Theme.text))
             .padding(.horizontal, 11)
             .padding(.vertical, 6)

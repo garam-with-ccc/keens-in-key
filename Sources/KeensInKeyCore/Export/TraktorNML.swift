@@ -18,6 +18,24 @@ public enum TraktorNML {
     }
 
     public static func export(_ tracks: [ExportTrack], playlistName: String = "Keens In Key", notation: KeyNotation = .openKey) -> String {
+        export(tracks, playlists: [ExportPlaylist(name: playlistName, trackIndexes: Array(0..<tracks.count))], notation: notation)
+    }
+
+    static func playlistNode(_ p: ExportPlaylist, keys: [String]) -> String {
+        if p.isFolder {
+            var out = "<NODE TYPE=\"FOLDER\" NAME=\"\(esc(p.name))\"><SUBNODES COUNT=\"\(p.children.count)\">"
+            for c in p.children { out += playlistNode(c, keys: keys) }
+            return out + "</SUBNODES></NODE>"
+        }
+        var out = "<NODE TYPE=\"PLAYLIST\" NAME=\"\(esc(p.name))\"><PLAYLIST ENTRIES=\"\(p.trackIndexes.count)\" TYPE=\"LIST\" UUID=\"\(UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: ""))\">"
+        for i in p.trackIndexes where i < keys.count {
+            out += "<ENTRY><PRIMARYKEY TYPE=\"TRACK\" KEY=\"\(esc(keys[i]))\"></PRIMARYKEY></ENTRY>"
+        }
+        return out + "</PLAYLIST></NODE>"
+    }
+
+    /// Traktor collection with an arbitrary playlist / folder tree.
+    public static func export(_ tracks: [ExportTrack], playlists: [ExportPlaylist], notation: KeyNotation = .openKey) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy/M/d"
         let today = df.string(from: Date())
@@ -54,12 +72,9 @@ public enum TraktorNML {
             out += "</ENTRY>\n"
         }
         out += "</COLLECTION>\n"
-        out += "<PLAYLISTS><NODE TYPE=\"FOLDER\" NAME=\"$ROOT\"><SUBNODES COUNT=\"1\">"
-        out += "<NODE TYPE=\"PLAYLIST\" NAME=\"\(esc(playlistName))\"><PLAYLIST ENTRIES=\"\(tracks.count)\" TYPE=\"LIST\" UUID=\"\(UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: ""))\">"
-        for k in keys {
-            out += "<ENTRY><PRIMARYKEY TYPE=\"TRACK\" KEY=\"\(esc(k))\"></PRIMARYKEY></ENTRY>"
-        }
-        out += "</PLAYLIST></NODE></SUBNODES></NODE></PLAYLISTS>\n</NML>\n"
+        out += "<PLAYLISTS><NODE TYPE=\"FOLDER\" NAME=\"$ROOT\"><SUBNODES COUNT=\"\(playlists.count)\">"
+        for p in playlists { out += playlistNode(p, keys: keys) }
+        out += "</SUBNODES></NODE></PLAYLISTS>\n</NML>\n"
         return out
     }
 }

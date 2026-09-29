@@ -9,24 +9,54 @@ struct AnalyzeView: View {
     @Environment(AnalysisController.self) private var analysis
     @Environment(Player.self) private var player
 
+    /// Tracks shown in the table: whole library or the selected collection / playlist, then search + tag filter.
+    var visibleTracks: [Track] {
+        if let sel = state.playlistSelection, library.node(sel) != nil {
+            return library.filtered(library.tracks(in: sel))
+        }
+        return library.filteredTracks
+    }
+
     var body: some View {
+        let node = state.playlistSelection.flatMap { library.node($0) }
         VStack(spacing: 0) {
-            AnalyzeToolbar()
+            AnalyzeToolbar(visible: visibleTracks)
             Rectangle().fill(Theme.border).frame(height: 1)
-            if library.tracks.isEmpty {
-                DropZone()
-            } else {
-                TrackTable()
+            if let node {
+                PlaylistHeader(node: node, tracks: library.tracks(in: node.id))
+                Rectangle().fill(Theme.border).frame(height: 1)
+            }
+            TagFilterBar()
+            HStack(spacing: 0) {
+                if library.tracks.isEmpty {
+                    DropZone()
+                } else if let node, node.kind != .smart, visibleTracks.isEmpty, !library.tagFilter.isActive, library.searchText.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "music.note.list").font(.system(size: 34, weight: .light)).foregroundStyle(Theme.accent)
+                        Text("This \(node.kind == .folder ? "collection" : "playlist") is empty").font(.system(size: 15, weight: .semibold))
+                        Text(node.kind == .folder ? "Create a playlist inside it, then drag tracks from All Tracks onto the playlist." : "Drag tracks from All Tracks onto it in the sidebar, or use “Add to Playlist” in a track's context menu.")
+                            .font(.system(size: 12)).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 420)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    TrackTable(rows: visibleTracks, playlist: node)
+                }
+                if state.showTagPanel {
+                    Rectangle().fill(Theme.border).frame(width: 1)
+                    TagPanel()
+                }
             }
             if let id = state.primarySelection, let track = library.track(id) {
                 Rectangle().fill(Theme.border).frame(height: 1)
                 DetailPanel(track: track)
             }
         }
+        .onChange(of: state.playlistSelection) { _, _ in state.selection.removeAll() }
     }
 }
 
 struct AnalyzeToolbar: View {
+    var visible: [Track] = []
     @Environment(AppState.self) private var state
     @Environment(LibraryStore.self) private var library
     @Environment(AppSettings.self) private var settings
@@ -51,13 +81,13 @@ struct AnalyzeToolbar: View {
                     .buttonStyle(ToolbarButtonStyle(destructive: true))
             } else {
                 Button {
-                    let ids = state.selection.isEmpty ? library.tracks.map(\.id) : Array(state.selection)
+                    let ids = state.selection.isEmpty ? visible.map(\.id) : Array(state.selection)
                     analysis.enqueue(ids, force: !state.selection.isEmpty)
                 } label: {
-                    Label(state.selection.isEmpty ? "Analyze All" : "Analyze Selected", systemImage: "waveform")
+                    Label(state.selection.isEmpty ? (state.playlistSelection == nil ? "Analyze All" : "Analyze Playlist") : "Analyze Selected", systemImage: "waveform")
                 }
                 .buttonStyle(ToolbarButtonStyle())
-                .disabled(library.tracks.isEmpty)
+                .disabled(visible.isEmpty)
             }
 
             Button {
@@ -70,10 +100,18 @@ struct AnalyzeToolbar: View {
             .disabled(library.tracks.allSatisfy { $0.result == nil })
 
             Menu {
-                Button("CSV…") { FileActions.export(.csv, library: library, settings: settings, state: state) }
-                Button("rekordbox XML…") { FileActions.export(.rekordbox, library: library, settings: settings, state: state) }
-                Button("Traktor NML…") { FileActions.export(.traktor, library: library, settings: settings, state: state) }
-                Button("M3U Playlist…") { FileActions.export(.m3u, library: library, settings: settings, state: state) }
+                Section(state.playlistSelection == nil ? "Visible tracks" : "This playlist") {
+                    Button("CSV…") { FileActions.export(.csv, library: library, settings: settings, state: state) }
+                    Button("rekordbox XML…") { FileActions.export(.rekordbox, library: library, settings: settings, state: state) }
+                    Button("Traktor NML…") { FileActions.export(.traktor, library: library, settings: settings, state: state) }
+                    Button("M3U Playlist…") { FileActions.export(.m3u, library: library, settings: settings, state: state) }
+                }
+                if !library.collections.isEmpty {
+                    Section("All collections & playlists") {
+                        Button("rekordbox XML…") { FileActions.exportCollections(.rekordbox, library: library, settings: settings, state: state) }
+                        Button("Traktor NML…") { FileActions.exportCollections(.traktor, library: library, settings: settings, state: state) }
+                    }
+                }
             } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
             }
@@ -81,6 +119,10 @@ struct AnalyzeToolbar: View {
             .fixedSize()
             .buttonStyle(ToolbarButtonStyle())
             .disabled(library.tracks.isEmpty)
+
+            Button { state.showTagPanel.toggle() } label: { Label("Tags", systemImage: state.showTagPanel ? "tag.fill" : "tag") }
+                .buttonStyle(ToolbarButtonStyle())
+                .help("Show the tag panel to tag the selected tracks")
 
             Spacer()
 
@@ -163,16 +205,24 @@ struct DropZone: View {
 }
 
 struct TrackTable: View {
+    var rows: [Track]
+    var playlist: PlaylistNode? = nil
     @Environment(AppState.self) private var state
     @Environment(LibraryStore.self) private var library
     @Environment(AppSettings.self) private var settings
     @Environment(AnalysisController.self) private var analysis
     @Environment(Player.self) private var player
 
+    /// Manual playlists keep their own order unless the user sorts a column.
+    private var sortedRows: [Track] {
+        if playlist?.kind == .playlist, state.sortOrder.first?.keyPath == \Track.addedAt { return rows }
+        return rows.sorted(using: state.sortOrder)
+    }
+
     var body: some View {
         @Bindable var state = state
-        let rows = library.filteredTracks.sorted(using: state.sortOrder)
-        Table(rows, selection: $state.selection, sortOrder: $state.sortOrder) {
+        let rows = sortedRows
+        Table(selection: $state.selection, sortOrder: $state.sortOrder) {
             Group {
                 TableColumn("", value: \.statusSortValue) { t in StatusCell(track: t).frame(maxWidth: .infinity) }
                     .width(26)
@@ -199,6 +249,14 @@ struct TrackTable: View {
                 TableColumn("File", value: \.fileName) { t in PathCell(track: t) }
                     .width(min: 100, ideal: 220)
             }
+        } rows: {
+            ForEach(rows) { t in
+                TableRow(t).itemProvider {
+                    // Dragging a selection carries every selected id so a drop on a playlist adds them all.
+                    let ids = state.selection.contains(t.id) ? Array(state.selection) : [t.id]
+                    return NSItemProvider(object: ids.map(\.uuidString).joined(separator: ",") as NSString)
+                }
+            }
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
         .scrollContentBackground(.hidden)
@@ -218,6 +276,24 @@ struct TrackTable: View {
             }
             Button("Double BPM") { TrackEdits.scaleTempo(2, ids: sel, library: library) }
             Button("Halve BPM") { TrackEdits.scaleTempo(0.5, ids: sel, library: library) }
+            Divider()
+            let playlists = library.manualPlaylists
+            if !playlists.isEmpty {
+                Menu("Add to Playlist") {
+                    ForEach(playlists, id: \.node.id) { entry in
+                        Button(entry.path) { library.add(trackIds: Array(sel), to: entry.node.id) }
+                    }
+                }
+            }
+            Button("New Playlist with Selection…") { state.selection = sel; state.newNodeRequest = .init(kind: .playlist, parent: state.playlistSelection.flatMap { PlaylistTree.path(to: $0, in: library.collections)?.first }) }
+            if let playlist, playlist.kind == .playlist {
+                Button("Remove from Playlist") { library.remove(trackIds: sel, from: playlist.id) }
+                if sel.count == 1, let id = sel.first {
+                    Button("Move Up") { library.move(trackId: id, in: playlist.id, by: -1) }
+                    Button("Move Down") { library.move(trackId: id, in: playlist.id, by: 1) }
+                }
+            }
+            Button("Tag…") { state.selection = sel; state.showTagPanel = true }
             Divider()
             Button("Show Cue Points") { if let id = sel.first { state.selection = [id]; state.page = .cues } }
             Button("Show on Camelot Wheel") { if let id = sel.first, let k = library.track(id)?.key { state.wheelKey = k; state.page = .wheel } }

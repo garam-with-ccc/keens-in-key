@@ -36,69 +36,13 @@ struct ContentView: View {
             if !ids.isEmpty { state.page = .analyze }
             return !ids.isEmpty
         }
-    }
-}
-
-struct SidebarView: View {
-    @Environment(AppState.self) private var state
-    @Environment(AnalysisController.self) private var analysis
-    @Environment(LibraryStore.self) private var library
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 34, height: 34)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Keens In Key").font(.system(size: 14, weight: .bold, design: .rounded))
-                    Text("Harmonic mixing").font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 40)
-            .padding(.bottom, 22)
-
-            ForEach(Page.allCases) { page in
-                Button {
-                    state.page = page
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: page.icon)
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(width: 20)
-                        Text(page.title).font(.system(size: 13, weight: state.page == page ? .semibold : .regular))
-                        Spacer()
-                    }
-                    .foregroundStyle(state.page == page ? Theme.accent : Theme.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(state.page == page ? Theme.accentSoft : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 1)
-            }
-
-            Spacer()
-
-            VStack(alignment: .leading, spacing: 6) {
-                if analysis.isRunning {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small)
-                        Text("Analyzing \(analysis.completed)/\(analysis.total)").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                    }
-                    ProgressView(value: Double(analysis.completed), total: Double(max(1, analysis.total))).tint(Theme.accent)
-                } else {
-                    let done = library.tracks.filter { $0.result != nil }.count
-                    Text("\(library.tracks.count) tracks · \(done) analyzed").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
-                }
-                Text("v\(AppInfo.version)").font(.system(size: 10)).foregroundStyle(Theme.textSecondary.opacity(0.7))
-            }
-            .padding(16)
+        .sheet(item: $state.newNodeRequest) { req in NewNodeSheet(request: req) }
+        .sheet(isPresented: Binding(get: { state.editingNode != nil }, set: { if !$0 { state.editingNode = nil } })) {
+            if let id = state.editingNode { EditNodeSheet(nodeId: id) }
         }
-        .frame(width: 200)
-        .background(Theme.sidebar)
+        .sheet(isPresented: Binding(get: { state.editingSmartRules != nil }, set: { if !$0 { state.editingSmartRules = nil } })) {
+            if let id = state.editingSmartRules { SmartRulesSheet(nodeId: id) }
+        }
+        .sheet(isPresented: $state.showTagManager) { TagManagerSheet() }
     }
 }

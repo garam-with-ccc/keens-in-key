@@ -23,6 +23,8 @@ struct Track: Identifiable, Codable, Hashable {
     var errorMessage: String?
     var tagsWrittenAt: Date?
     var addedAt: Date = Date()
+    /// User tags (secondary classification), see LibraryStore.tagCategories.
+    var tagIds: Set<UUID> = []
 
     var url: URL { URL(fileURLWithPath: path) }
     var fileName: String { url.lastPathComponent }
@@ -53,6 +55,11 @@ struct Track: Identifiable, Codable, Hashable {
     var tagsSortValue: Int { tagsWrittenAt == nil ? 0 : 1 }
 
     var isMissing: Bool { !FileManager.default.fileExists(atPath: path) }
+
+    var facts: TrackFacts {
+        TrackFacts(id: id, title: displayTitle, artist: artist, album: album, genre: genre, key: key, bpm: bpm, energy: energy,
+                   duration: result?.duration ?? duration, tagIds: tagIds, addedAt: addedAt, analyzed: result != nil)
+    }
 
     static func make(url: URL) -> Track {
         let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)

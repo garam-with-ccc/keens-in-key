@@ -30,6 +30,9 @@
 | **Energy level** | 1–10 energy rating from loudness, bass weight, brightness and rhythmic drive, like Mixed In Key's energy level. |
 | **Cue points** | Up to 8 cue points at section changes (Intro / Verse / Build / Drop / Break / Outro), **quantized** to the beat grid (beat, bar, 4 or 8 bars). Edit, nudge, drag and re-quantize them on a zoomable waveform. |
 | **Camelot wheel** | Interactive wheel highlighting harmonic neighbours, relative keys, energy-boost and mood-change mixes, plus the compatible tracks already in your library. |
+| **Collections & playlists** | Collections hold nested playlists with emoji labels (as in Mixed In Key 11); smart playlists fill themselves from rules (tags, key, BPM, energy, genre, text). Drag tracks onto playlists, reorder them, export a playlist or all collections to rekordbox / Traktor with the folder tree. |
+| **Tags** | Secondary classification with your own tag categories (Genre, Components, Situation, Mood…), a tag panel for the selected tracks and a match-all / match-any tag filter on every list, like rekordbox's My Tag. |
+| **Song Info** | Edit title, artist, album and genre in the detail panel and write them back to the file. |
 | **Tag writing** | Writes key / BPM / energy into **MP3, AIFF, WAV (ID3v2), FLAC (Vorbis comments) and M4A/AAC (iTunes atoms, incl. `initialkey`)** files without re-encoding. Personalize where the result goes: Initial Key tag, comment, grouping, title prefix, file name. |
 | **DJ software** | Cue points and the beat grid can be embedded in the files in **Serato** format (read by Serato DJ and Engine DJ); **rekordbox XML** (tempo grid, coloured hot cues) and **Traktor NML** collections are exported for import. |
 | **Corrections** | Override a wrong key, halve or double the BPM, shift the downbeat, and edit cue points; tags are rewritten from the corrected values. |
@@ -47,13 +50,17 @@ Releases are signed with a Developer ID certificate and notarized by Apple, so t
 
 ## Screenshots
 
-| Cue points | Camelot wheel |
+| Collections, playlists and tags | Cue points |
 | --- | --- |
-| ![Cue points](docs/screenshots/cues.png) | ![Camelot wheel](docs/screenshots/wheel.png) |
+| ![Collections](docs/screenshots/collection.png) | ![Cue points](docs/screenshots/cues.png) |
 
-| Personalize | Settings |
+| Camelot wheel | Settings |
 | --- | --- |
-| ![Personalize](docs/screenshots/personalize.png) | ![Settings](docs/screenshots/settings.png) |
+| ![Camelot wheel](docs/screenshots/wheel.png) | ![Settings](docs/screenshots/settings.png) |
+
+| Personalize |
+| --- |
+| ![Personalize](docs/screenshots/personalize.png) |
 
 ## How the analysis works
 
@@ -112,6 +119,7 @@ Xcode 16 / Swift 5.10 or newer. The project is a plain Swift package: `KeensInKe
 * Personalize 탭에서 태그 기록 방식(Initial Key, 코멘트 형식, 그룹, 제목 접두어, 파일명)을 설정합니다.
 * 큐 포인트와 비트 그리드를 Serato 형식으로 파일에 직접 기록할 수 있고(Serato DJ·Engine DJ에서 인식), rekordbox XML과 Traktor NML로도 내보냅니다.
 * 잘못 잡힌 키는 직접 바꾸고, BPM은 ½·×2, 다운비트는 한 비트씩 옮길 수 있습니다.
+* 콜렉션(폴더) 아래에 플레이리스트를 중첩해 만들고 이모지를 붙일 수 있으며, 태그(장르·구성·상황·무드 등 직접 정의)로 곡을 2차 분류하고 태그 필터나 스마트 플레이리스트 규칙으로 걸러 볼 수 있습니다.
 * CSV / rekordbox XML / Traktor NML / M3U로 내보낼 수 있습니다.
 
 설치: 릴리즈에서 DMG를 받아 응용 프로그램 폴더로 옮기면 됩니다. Developer ID 서명과 Apple 공증을 거친 빌드라 Gatekeeper 경고 없이 바로 열립니다.

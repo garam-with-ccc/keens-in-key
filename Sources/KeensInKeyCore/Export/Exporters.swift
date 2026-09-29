@@ -15,6 +15,18 @@ public struct ExportTrack: Sendable {
     }
 }
 
+/// A playlist (or folder of playlists) to export alongside the collection.
+public struct ExportPlaylist: Sendable {
+    public var name: String
+    public var isFolder: Bool
+    /// Indexes into the exported track list (0-based), in playlist order.
+    public var trackIndexes: [Int]
+    public var children: [ExportPlaylist]
+    public init(name: String, isFolder: Bool = false, trackIndexes: [Int] = [], children: [ExportPlaylist] = []) {
+        self.name = name; self.isFolder = isFolder; self.trackIndexes = trackIndexes; self.children = children
+    }
+}
+
 public enum Exporters {
     static func csvEscape(_ s: String) -> String {
         if s.contains(",") || s.contains("\"") || s.contains("\n") { return "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
@@ -78,6 +90,22 @@ public enum Exporters {
 
     /// rekordbox.xml collection with tempo grid and hot cues, importable by Pioneer rekordbox.
     public static func rekordboxXML(_ tracks: [ExportTrack], playlistName: String = "Keens In Key", notation: KeyNotation = .camelot, appVersion: String = "1.0") -> String {
+        rekordboxXML(tracks, playlists: [ExportPlaylist(name: playlistName, trackIndexes: Array(0..<tracks.count))], notation: notation, appVersion: appVersion)
+    }
+
+    static func rekordboxPlaylistNode(_ p: ExportPlaylist, indent: String) -> String {
+        if p.isFolder {
+            var out = "\(indent)<NODE Type=\"0\" Name=\"\(xmlEscape(p.name))\" Count=\"\(p.children.count)\">\n"
+            for c in p.children { out += rekordboxPlaylistNode(c, indent: indent + "  ") }
+            return out + "\(indent)</NODE>\n"
+        }
+        var out = "\(indent)<NODE Name=\"\(xmlEscape(p.name))\" Type=\"1\" KeyType=\"0\" Entries=\"\(p.trackIndexes.count)\">\n"
+        for i in p.trackIndexes { out += "\(indent)  <TRACK Key=\"\(i + 1)\"/>\n" }
+        return out + "\(indent)</NODE>\n"
+    }
+
+    /// rekordbox.xml with an arbitrary playlist / folder tree.
+    public static func rekordboxXML(_ tracks: [ExportTrack], playlists: [ExportPlaylist], notation: KeyNotation = .camelot, appVersion: String = "1.0") -> String {
         var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<DJ_PLAYLISTS Version=\"1.0.0\">\n"
         out += "  <PRODUCT Name=\"Keens In Key\" Version=\"\(xmlEscape(appVersion))\" Company=\"keens-in-key\"/>\n"
         out += "  <COLLECTION Entries=\"\(tracks.count)\">\n"
@@ -112,10 +140,9 @@ public enum Exporters {
             out += "    </TRACK>\n"
         }
         out += "  </COLLECTION>\n"
-        out += "  <PLAYLISTS>\n    <NODE Type=\"0\" Name=\"ROOT\" Count=\"1\">\n"
-        out += "      <NODE Name=\"\(xmlEscape(playlistName))\" Type=\"1\" KeyType=\"0\" Entries=\"\(tracks.count)\">\n"
-        for i in 0..<tracks.count { out += "        <TRACK Key=\"\(i + 1)\"/>\n" }
-        out += "      </NODE>\n    </NODE>\n  </PLAYLISTS>\n</DJ_PLAYLISTS>\n"
+        out += "  <PLAYLISTS>\n    <NODE Type=\"0\" Name=\"ROOT\" Count=\"\(playlists.count)\">\n"
+        for p in playlists { out += rekordboxPlaylistNode(p, indent: "      ") }
+        out += "    </NODE>\n  </PLAYLISTS>\n</DJ_PLAYLISTS>\n"
         return out
     }
 }

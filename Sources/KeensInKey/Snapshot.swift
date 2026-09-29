@@ -33,6 +33,27 @@ enum SnapshotRunner {
                 player.load(first)
                 player.seek(to: min(20, (first.result?.duration ?? 0) / 3))
             }
+            // Sample collection / playlists / tags for the screenshots.
+            if library.collections.isEmpty, library.tracks.count >= 2 {
+                let ids = library.tracks.map(\.id)
+                let col = library.createNode(name: "Saturday Night", emoji: "🔥", kind: .folder)
+                let warm = library.createNode(name: "Warm-up", emoji: "🌙", kind: .playlist, under: col.id, trackIds: Array(ids.prefix(2)))
+                _ = library.createNode(name: "Peak Time", emoji: "⚡️", kind: .playlist, under: col.id, trackIds: Array(ids.dropFirst(2).prefix(3)))
+                var rules = SmartRules(); rules.minEnergy = 7; rules.sort = .energyDescending
+                _ = library.createNode(name: "High Energy", emoji: "✨", kind: .smart, under: col.id, rules: rules)
+                if let vocal = library.tagCategories.first(where: { $0.name == "Components" })?.tags.first(where: { $0.name == "Vocal" }),
+                   let peak = library.tagCategories.first(where: { $0.name == "Situation" })?.tags.first(where: { $0.name == "Peak time" }) {
+                    library.setTag(vocal.id, on: Set(ids.prefix(3)), enabled: true)
+                    library.setTag(peak.id, on: Set(ids.dropFirst(1).prefix(3)), enabled: true)
+                }
+                state.playlistSelection = warm.id
+                state.showTagPanel = true
+                state.page = .analyze
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                snapshot(to: URL(fileURLWithPath: dir).appendingPathComponent("collection.png"))
+                state.playlistSelection = nil
+                state.showTagPanel = false
+            }
             for page in Page.allCases {
                 state.page = page
                 if page == .wheel { state.wheelKey = nil }

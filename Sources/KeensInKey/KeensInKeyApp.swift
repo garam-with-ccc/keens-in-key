@@ -34,6 +34,20 @@ final class AppState {
     var alertMessage: String?
     var alertTitle = "Keens In Key"
     var wheelKey: MusicalKey?
+    /// Selected collection / playlist in the sidebar (nil = whole library).
+    var playlistSelection: UUID?
+    var showTagPanel = false
+    var showTagManager = false
+    var showSongInfo = false
+    var editingNode: UUID?          // rename / emoji sheet
+    var editingSmartRules: UUID?    // smart playlist rule editor
+    var newNodeRequest: NewNodeRequest?
+
+    struct NewNodeRequest: Identifiable {
+        var id = UUID()
+        var kind: PlaylistKind
+        var parent: UUID?
+    }
 
     var primarySelection: UUID? { selection.count == 1 ? selection.first : nil }
 
@@ -110,10 +124,20 @@ struct AppCommands: Commands {
             Button("Add Folder…") { FileActions.addFolder(library: library, settings: settings, analysis: analysis) }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
             Divider()
+            Button("New Collection…") { state.newNodeRequest = .init(kind: .folder, parent: nil) }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+            Button("New Playlist…") { state.newNodeRequest = .init(kind: .playlist, parent: library.collections.first?.id) }
+                .keyboardShortcut("n", modifiers: .command)
+            Button("New Smart Playlist…") { state.newNodeRequest = .init(kind: .smart, parent: library.collections.first?.id) }
+                .keyboardShortcut("n", modifiers: [.command, .option])
+            Divider()
             Button("Export CSV…") { FileActions.export(.csv, library: library, settings: settings, state: state) }
             Button("Export rekordbox XML…") { FileActions.export(.rekordbox, library: library, settings: settings, state: state) }
             Button("Export Traktor NML…") { FileActions.export(.traktor, library: library, settings: settings, state: state) }
             Button("Export M3U Playlist…") { FileActions.export(.m3u, library: library, settings: settings, state: state) }
+            Divider()
+            Button("Export All Collections as rekordbox XML…") { FileActions.exportCollections(.rekordbox, library: library, settings: settings, state: state) }
+            Button("Export All Collections as Traktor NML…") { FileActions.exportCollections(.traktor, library: library, settings: settings, state: state) }
         }
         CommandMenu("Analysis") {
             Button("Analyze All") { analysis.enqueue(library.tracks.map(\.id)) }
@@ -132,6 +156,15 @@ struct AppCommands: Commands {
                 .keyboardShortcut("t", modifiers: [.command, .shift])
         }
         CommandMenu("Track") {
+            Menu("Add to Playlist") {
+                ForEach(library.manualPlaylists, id: \.node.id) { entry in
+                    Button(entry.path) { library.add(trackIds: Array(state.selection), to: entry.node.id) }
+                }
+            }
+            .disabled(state.selection.isEmpty || library.manualPlaylists.isEmpty)
+            Button("Show Tag Panel") { state.showTagPanel.toggle(); state.page = .analyze }
+                .keyboardShortcut("t", modifiers: [.command, .option])
+            Divider()
             Menu("Set Key") {
                 ForEach(1...12, id: \.self) { n in
                     let minor = MusicalKey.fromCamelot(number: n, mode: .minor), major = MusicalKey.fromCamelot(number: n, mode: .major)
